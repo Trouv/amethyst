@@ -45,6 +45,7 @@ pub fn prefab_spawning_tick(world: &mut World, resources: &mut Resources) {
                     .as_ref()
                     .map(|instance| instance.version)
                     .unwrap_or(0);
+
                 if instance_version < *prefab_version {
                     let mut entity_map = instance
                         .as_ref()
@@ -63,31 +64,40 @@ pub fn prefab_spawning_tick(world: &mut World, resources: &mut Resources) {
     );
 
     for (entity, prefab, version, prev_entity_map) in prefabs.into_iter() {
+        if let Some(mut entry) = world.entry(entity) {
+            log::info!("{:?} HAS ARCH {:?}", entity, entry.archetype());
+        }
         let entity_map = world.clone_from(
             &prefab.world,
             &query::any(),
-            &mut component_registry.spawn_clone_impl(&resources, &prev_entity_map),
+            &mut component_registry.copy_clone_impl(),
         );
+        if let Some(mut entry) = world.entry(entity) {
+            log::info!("{:?} HAS ARCH {:?}", entity, entry.archetype());
+        }
 
         let live_entities: HashSet<Entity, EntityHasher> = entity_map.values().copied().collect();
         let prev_entities: HashSet<_, _> = prev_entity_map.values().copied().collect();
 
-        log::debug!("new entity_map: {:?}", entity_map);
-        log::debug!("old entity map: {:?}", prev_entity_map);
+        log::info!("new entity_map: {:?}", entity_map);
+        log::info!("old entity map: {:?}", prev_entity_map);
 
         for value in prev_entities.difference(&live_entities).copied() {
-            if world.remove(value) {
-                log::debug!("Removed entity {:?}", value)
-            }
+            //if .remove(value) {
+            //log::info!("Removed entity {:?}", value)
+            //}
         }
 
         log::debug!("Spawn for {:?}", entity);
 
         if let Some(mut entry) = world.entry(entity) {
+            entry.remove_component::<Handle<Prefab>>();
+            log::info!("{:?} HAS ARCH {:?}", entity, entry.archetype());
             entry.add_component(PrefabInstance {
                 version,
                 entity_map,
             });
+            log::info!("{:?} HAS ARCH {:?}", entity, entry.archetype());
         } else {
             log::error!("Could not update entity");
         }
